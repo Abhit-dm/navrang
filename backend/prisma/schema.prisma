@@ -1,0 +1,423 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============ USERS / AUTH ============
+// role: ADMIN | EMPLOYEE (SQLite has no enum support)
+model User {
+  id            Int       @id @default(autoincrement())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          String    @default("EMPLOYEE")
+  phone         String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sales         Sale[]
+  invoices      Invoice[]
+  auditLogs     AuditLog[]
+  stockMovements StockMovement[]
+}
+
+// ============ CUSTOMER ============
+model Customer {
+  id            Int       @id @default(autoincrement())
+  customerCode  String    @unique // CUS-2026-000001
+  name          String
+  phone         String
+  altPhone      String?
+  email         String?
+  address       String?
+  gstin         String?
+  city          String?
+  state         String?
+  pincode       String?
+  customerType  String    @default("Individual")
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  vehicles      Vehicle[]
+  sales         Sale[]
+  invoices      Invoice[]
+  payments      Payment[]
+  warranties    Warranty[]
+}
+
+// ============ VEHICLE ============
+model Vehicle {
+  id              Int       @id @default(autoincrement())
+  customerId      Int
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  vehicleNumber   String
+  vehicleType     String
+  brand           String?
+  model           String?
+  year            Int?
+  fuelType        String?
+  odometerReading Int?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  sales           Sale[]
+  invoices        Invoice[]
+  warranties      Warranty[]
+}
+
+// ============ SUPPLIER ============
+model Supplier {
+  id            Int       @id @default(autoincrement())
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  gstin         String?
+  state         String?
+  notes         String?
+  supplierCode  String?   @unique // SUP-0001
+  companyName   String?
+  altPhone      String?
+  city          String?
+  pincode       String?
+  status        String    @default("ACTIVE") // ACTIVE / INACTIVE
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  purchases     Purchase[]
+  inventory     Inventory[]
+  products      Product[]
+}
+
+// ============ PRODUCT ============
+model Product {
+  id                  Int       @id @default(autoincrement())
+  name                String
+  brand               String?
+  category            String
+  productType         String?
+  sku                 String    @unique
+  barcode             String?
+  size                String?
+  width               String?
+  profile             String?
+  rimSize             String?
+  tyreType            String?
+  vehicleCompatibility String?
+  speedRating         String?
+  loadIndex           String?
+  tubeType             String?
+  pattern             String?
+  purchasePrice       Float     @default(0)
+  sellingPrice        Float     @default(0)
+  mrp                 Float     @default(0)
+  gstPercent          Float     @default(18)
+  minStockLevel       Int       @default(5)
+  supplierId          Int?
+  supplier            Supplier? @relation(fields: [supplierId], references: [id])
+  warrantyType        String?   @default("No Warranty")
+  warrantyDuration     Int?      @default(0) // months
+  status              String    @default("ACTIVE") // ACTIVE / INACTIVE
+  imageUrl            String?
+  description         String?
+  featured            Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  inventory           Inventory[]
+  purchaseItems       PurchaseItem[]
+  saleItems           SaleItem[]
+  invoiceItems        InvoiceItem[]
+  warranties          Warranty[]
+  stockMovements      StockMovement[]
+}
+
+// ============ INVENTORY (batch/stock) ============
+model Inventory {
+  id            Int       @id @default(autoincrement())
+  productId     Int
+  product       Product   @relation(fields: [productId], references: [id])
+  batch         String?
+  quantity      Int       @default(0)
+  purchasePrice Float     @default(0)
+  sellingPrice  Float     @default(0)
+  mrp           Float     @default(0)
+  gstPercent    Float     @default(18)
+  supplierId    Int?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  purchaseDate  DateTime?
+  expiryDate    DateTime?
+  manufactureDate DateTime?
+  dotNumber     String?
+  serialNumber  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ============ STOCK MOVEMENT ============
+// type: PURCHASE | SALE | RETURN | ADJUSTMENT_IN | ADJUSTMENT_OUT | DAMAGE | OPENING_STOCK
+model StockMovement {
+  id          Int               @id @default(autoincrement())
+  productId   Int
+  product     Product           @relation(fields: [productId], references: [id])
+  type        String
+  quantity    Int
+  reference   String?
+  notes       String?
+  userId      Int?
+  user        User?             @relation(fields: [userId], references: [id])
+  createdAt   DateTime          @default(now())
+}
+
+// ============ PURCHASE ============
+model Purchase {
+  id            Int             @id @default(autoincrement())
+  purchaseNumber String         @unique
+  supplierId    Int
+  supplier      Supplier        @relation(fields: [supplierId], references: [id])
+  purchaseDate  DateTime        @default(now())
+  subtotal      Float           @default(0)
+  discount      Float           @default(0)
+  gstAmount     Float           @default(0)
+  total         Float           @default(0)
+  paidAmount    Float           @default(0)
+  paymentStatus String          @default("PENDING") // PAID / PARTIALLY PAID / PENDING
+  paymentMethod String?
+  createdAt     DateTime        @default(now())
+
+  items         PurchaseItem[]
+}
+
+model PurchaseItem {
+  id            Int       @id @default(autoincrement())
+  purchaseId    Int
+  purchase      Purchase  @relation(fields: [purchaseId], references: [id])
+  productId     Int
+  product       Product   @relation(fields: [productId], references: [id])
+  quantity      Int
+  purchasePrice Float
+  gstPercent    Float     @default(0)
+  discount      Float     @default(0)
+  total         Float
+}
+
+// ============ SALE ============
+model Sale {
+  id            Int         @id @default(autoincrement())
+  saleNumber    String      @unique
+  customerId    Int
+  customer      Customer    @relation(fields: [customerId], references: [id])
+  vehicleId     Int?
+  vehicle       Vehicle?    @relation(fields: [vehicleId], references: [id])
+  employeeId    Int?
+  employee      User?       @relation(fields: [employeeId], references: [id])
+  subtotal      Float       @default(0)
+  discount      Float       @default(0)
+  gstAmount     Float       @default(0)
+  total         Float       @default(0)
+  paymentMethod String?
+  isGst         Boolean     @default(true)
+  saleDate      DateTime    @default(now())
+  status        String      @default("ACTIVE") // ACTIVE / CANCELLED
+  notes         String?
+  createdAt     DateTime    @default(now())
+
+  items         SaleItem[]
+  invoice       Invoice?
+  warranties    Warranty[]
+}
+
+model SaleItem {
+  id            Int       @id @default(autoincrement())
+  saleId        Int
+  sale          Sale      @relation(fields: [saleId], references: [id])
+  productId     Int
+  product       Product   @relation(fields: [productId], references: [id])
+  quantity      Int
+  sellingPrice  Float
+  purchasePrice Float     @default(0) // snapshot for COGS
+  gstPercent    Float     @default(0)
+  discount      Float     @default(0)
+  total         Float
+}
+
+// ============ INVOICE ============
+model Invoice {
+  id              Int             @id @default(autoincrement())
+  invoiceNumber   String          @unique
+  saleId          Int             @unique
+  sale            Sale            @relation(fields: [saleId], references: [id])
+  customerId      Int
+  customer        Customer        @relation(fields: [customerId], references: [id])
+  vehicleId       Int?
+  vehicle         Vehicle?        @relation(fields: [vehicleId], references: [id])
+  employeeId      Int?
+  employee        User?           @relation(fields: [employeeId], references: [id])
+  invoiceDate     DateTime        @default(now())
+  dueDate         DateTime?
+  isGst           Boolean         @default(true)
+  subtotal        Float           @default(0)
+  discount        Float           @default(0)
+  taxableAmount   Float           @default(0)
+  cgst            Float           @default(0)
+  sgst            Float           @default(0)
+  igst            Float           @default(0)
+  grandTotal      Float           @default(0)
+  paidAmount      Float           @default(0)
+  dueAmount       Float           @default(0)
+  paymentStatus   String          @default("PENDING") // PAID/PARTIALLY PAID/PENDING/CANCELLED/REFUNDED
+  status          String          @default("ACTIVE") // ACTIVE / CANCELLED
+  notes           String?
+  createdAt       DateTime        @default(now())
+
+  items           InvoiceItem[]
+  payments        Payment[]
+  warranties      Warranty[]
+}
+
+model InvoiceItem {
+  id            Int       @id @default(autoincrement())
+  invoiceId     Int
+  invoice       Invoice   @relation(fields: [invoiceId], references: [id])
+  productId     Int
+  product       Product   @relation(fields: [productId], references: [id])
+  quantity      Int
+  rate          Float
+  discount      Float     @default(0)
+  gstPercent    Float     @default(0)
+  amount        Float
+}
+
+// ============ PAYMENT ============
+model Payment {
+  id            Int       @id @default(autoincrement())
+  invoiceId     Int?
+  invoice       Invoice?  @relation(fields: [invoiceId], references: [id])
+  customerId    Int?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  amount        Float
+  method        String    // UPI, PhonePe, Google Pay, Debit Card, Credit Card, Net Banking, Wallet, Cash, Cash on Delivery
+  referenceNumber String?
+  status        String    @default("PAID") // PAID/PENDING/CANCELLED/REFUNDED
+  paidAt        DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+}
+
+// ============ WARRANTY ============
+model Warranty {
+  id              Int       @id @default(autoincrement())
+  warrantyCode    String    @unique
+  customerId      Int
+  customer        Customer  @relation(fields: [customerId], references: [id])
+  vehicleId       Int?
+  vehicle         Vehicle?  @relation(fields: [vehicleId], references: [id])
+  productId       Int
+  product         Product   @relation(fields: [productId], references: [id])
+  invoiceId       Int?
+  invoice         Invoice?  @relation(fields: [invoiceId], references: [id])
+  saleId          Int?
+  sale            Sale?     @relation(fields: [saleId], references: [id])
+  serialNumber    String?
+  purchaseDate    DateTime
+  warrantyStart   DateTime
+  warrantyEnd     DateTime
+  warrantyType    String    @default("Manufacturer Warranty")
+  warrantyDuration Int      @default(0) // months
+  warrantyTerms   String?
+  status          String    @default("ACTIVE") // ACTIVE/EXPIRING SOON/EXPIRED/CLAIMED/REPLACED
+  claimStatus     String    @default("NONE")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  claims          WarrantyClaim[]
+}
+
+model WarrantyClaim {
+  id            Int       @id @default(autoincrement())
+  warrantyId    Int
+  warranty      Warranty  @relation(fields: [warrantyId], references: [id])
+  claimDate     DateTime  @default(now())
+  reason        String?
+  resolution    String?
+  status        String    @default("OPEN") // OPEN/APPROVED/REJECTED/RESOLVED
+  createdAt     DateTime  @default(now())
+}
+
+// ============ EXPENSE ============
+model Expense {
+  id            Int       @id @default(autoincrement())
+  category      String
+  description   String?
+  amount        Float
+  paymentMethod String?
+  expenseDate   DateTime  @default(now())
+  notes         String?
+  createdAt     DateTime  @default(now())
+}
+
+// ============ BUSINESS SETTINGS ============
+model BusinessSettings {
+  id              Int       @id @default(autoincrement())
+  businessName    String    @default("NAVRANG TYRES")
+  tagline         String    @default("Quality Tyres. Trusted Service.")
+  logoUrl         String?
+  address         String?
+  phone           String?
+  email           String?
+  gstin           String?
+  state           String?
+  stateCode       String?
+  invoicePrefix   String    @default("INV")
+  currency        String    @default("INR")
+  defaultGstPercent Float   @default(18)
+  lowStockThreshold Int     @default(5)
+  warrantyExpiryDays Int    @default(30)
+  invoiceTerms    String?   @default("Goods once sold will not be taken back. Warranty as per manufacturer terms.")
+  footerText      String?   @default("Thank you for your business!")
+  allowNegativeStock Boolean @default(false)
+  whatsapp        String?
+  businessHours   String?
+  facebookUrl     String?
+  instagramUrl    String?
+  aboutText       String?
+  missionText     String?
+  visionText      String?
+  commitmentText  String?
+  updatedAt       DateTime  @updatedAt
+}
+
+// ============ CONTACT ENQUIRY (public website) ============
+// status: NEW | CONTACTED | CLOSED
+model ContactEnquiry {
+  id          Int       @id @default(autoincrement())
+  name        String
+  phone       String
+  email       String?
+  subject     String
+  message     String
+  status      String    @default("NEW")
+  notes       String?
+  archived    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============ AUDIT LOG ============
+model AuditLog {
+  id          Int       @id @default(autoincrement())
+  userId      Int?
+  user        User?     @relation(fields: [userId], references: [id])
+  action      String
+  entity      String?
+  entityId    String?
+  details     String?
+  createdAt   DateTime  @default(now())
+}
