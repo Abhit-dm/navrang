@@ -28,7 +28,8 @@ router.get('/summary', async (req, res) => {
   const lowStock = [];
   const outOfStock = [];
   for (const p of products) {
-    const qty = p.inventory.reduce((s, i) => s + i.quantity, 0);
+    const availableInventory = p.inventory.filter((i) => i.disposition === 'AVAILABLE' || i.disposition === null);
+    const qty = availableInventory.reduce((s, i) => s + i.quantity, 0);
     totalUnits += qty;
     totalStockValue += qty * p.purchasePrice;
     const status = stockStatus(qty, p.minStockLevel);
@@ -109,14 +110,20 @@ router.post('/adjust', authorize('ADMIN'), async (req, res) => {
   const allowNegative = settings?.allowNegativeStock || false;
 
   if (type !== 'ADJUSTMENT_IN') {
-    const agg = await prisma.inventory.aggregate({ where: { productId: product.id }, _sum: { quantity: true } });
+    const agg = await prisma.inventory.aggregate({
+      where: { productId: product.id, disposition: { in: ['AVAILABLE', null] } },
+      _sum: { quantity: true },
+    });
     const current = agg._sum.quantity || 0;
     if (!allowNegative && current - Number(quantity) < 0) {
       return res.status(400).json({ error: 'Bad Request', message: 'Insufficient stock for this adjustment.' });
     }
     // reduce from the most recent batch(es)
     let remaining = Number(quantity);
-    const batches = await prisma.inventory.findMany({ where: { productId: product.id, quantity: { gt: 0 } }, orderBy: { createdAt: 'asc' } });
+    const batches = await prisma.inventory.findMany({
+      where: { productId: product.id, quantity: { gt: 0 }, disposition: { in: ['AVAILABLE', null] } },
+      orderBy: { createdAt: 'asc' },
+    });
     for (const batch of batches) {
       if (remaining <= 0) break;
       const deduct = Math.min(batch.quantity, remaining);

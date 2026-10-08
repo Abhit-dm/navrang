@@ -1,7 +1,14 @@
+const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
+
+function createSeedPassword(environmentVariable, fallback) {
+  const password = process.env[environmentVariable] || fallback;
+  if (password) return password;
+  return crypto.randomBytes(24).toString('base64');
+}
 
 async function main() {
   console.log('Seeding NAVRANG TYRES demo data...');
@@ -36,6 +43,8 @@ async function main() {
   // Demo users
   const adminEmail = 'admin@navrangtyres.local';
   const empEmail = 'employee@navrangtyres.local';
+  const adminPassword = createSeedPassword('SEED_ADMIN_PASSWORD');
+  const employeePassword = createSeedPassword('SEED_EMPLOYEE_PASSWORD');
 
   const adminExists = await prisma.user.findUnique({ where: { email: adminEmail } });
   if (!adminExists) {
@@ -43,7 +52,7 @@ async function main() {
       data: {
         name: 'Admin (Demo)',
         email: adminEmail,
-        passwordHash: await bcrypt.hash('Admin@123', 10),
+        passwordHash: await bcrypt.hash(adminPassword, 10),
         role: 'ADMIN',
         phone: '9000000001',
       },
@@ -57,7 +66,7 @@ async function main() {
       data: {
         name: 'Employee (Demo)',
         email: empEmail,
-        passwordHash: await bcrypt.hash('Employee@123', 10),
+        passwordHash: await bcrypt.hash(employeePassword, 10),
         role: 'EMPLOYEE',
         phone: '9000000002',
       },
@@ -175,9 +184,11 @@ async function main() {
   }
 
   console.log('Seed complete.');
-  console.log('DEMO CREDENTIALS (development only — change before production):');
-  console.log(`  ADMIN:    ${adminEmail} / Admin@123`);
-  console.log(`  EMPLOYEE: ${empEmail} / Employee@123`);
+  console.log(`ADMIN: ${adminEmail} (password supplied by SEED_ADMIN_PASSWORD)`);
+  console.log(`EMPLOYEE: ${empEmail} (password supplied by SEED_EMPLOYEE_PASSWORD)`);
+  if (!process.env.SEED_ADMIN_PASSWORD || !process.env.SEED_EMPLOYEE_PASSWORD) {
+    console.warn('Seed passwords were generated securely and were not printed.');
+  }
 }
 
 main()

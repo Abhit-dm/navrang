@@ -1,6 +1,6 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 
 const router = express.Router();
@@ -30,7 +30,7 @@ router.get('/:id', async (req, res) => {
   res.json(vehicle);
 });
 
-router.post('/', async (req, res) => {
+router.post('/', authorize('ADMIN'), async (req, res) => {
   const { customerId, vehicleNumber, vehicleType, brand, model, year, fuelType, odometerReading, notes } = req.body;
   if (!customerId || !vehicleNumber || !vehicleType) {
     return res.status(400).json({ error: 'Bad Request', message: 'Customer, vehicle number and type are required.' });
@@ -52,7 +52,7 @@ router.post('/', async (req, res) => {
   res.status(201).json(vehicle);
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', authorize('ADMIN'), async (req, res) => {
   const id = Number(req.params.id);
   const { vehicleNumber, vehicleType, brand, model, year, fuelType, odometerReading, notes } = req.body;
   const vehicle = await prisma.vehicle.update({

@@ -24,6 +24,19 @@ model User {
   invoices      Invoice[]
   auditLogs     AuditLog[]
   stockMovements StockMovement[]
+  warrantyClaims WarrantyClaim[]
+  tokenBlacklist TokenBlacklist[]
+}
+
+model TokenBlacklist {
+  jti        String   @id
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 // ============ CUSTOMER ============
@@ -137,6 +150,8 @@ model Product {
   saleItems           SaleItem[]
   invoiceItems        InvoiceItem[]
   warranties          Warranty[]
+  replacements        WarrantyReplacement[]
+  returns             WarrantyReturn[]
   stockMovements      StockMovement[]
 }
 
@@ -158,8 +173,12 @@ model Inventory {
   manufactureDate DateTime?
   dotNumber     String?
   serialNumber  String?
+  disposition   String    @default("AVAILABLE") // AVAILABLE | RETURN | INSPECTION | HOLD
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  replacement    WarrantyReplacement?
+  warrantyReturns WarrantyReturn?
 }
 
 // ============ STOCK MOVEMENT ============
@@ -332,12 +351,14 @@ model Warranty {
   warrantyType    String    @default("Manufacturer Warranty")
   warrantyDuration Int      @default(0) // months
   warrantyTerms   String?
-  status          String    @default("ACTIVE") // ACTIVE/EXPIRING SOON/EXPIRED/CLAIMED/REPLACED
+  status          String    @default("ACTIVE") // ACTIVE/EXPIRING SOON/EXPIRED/CLAIMED/REPLACED/RETURNED
   claimStatus     String    @default("NONE")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   claims          WarrantyClaim[]
+  replacements    WarrantyReplacement[]
+  returns         WarrantyReturn[]
 }
 
 model WarrantyClaim {
@@ -345,10 +366,49 @@ model WarrantyClaim {
   warrantyId    Int
   warranty      Warranty  @relation(fields: [warrantyId], references: [id])
   claimDate     DateTime  @default(now())
-  reason        String?
+  reason        String
   resolution    String?
   status        String    @default("OPEN") // OPEN/APPROVED/REJECTED/RESOLVED
+  claimedBy     Int?
+  claimedByUser User?     @relation(fields: [claimedBy], references: [id])
+  resolvedAt    DateTime?
   createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model WarrantyReplacement {
+  id                    Int       @id @default(autoincrement())
+  warrantyId            Int
+  warranty              Warranty  @relation(fields: [warrantyId], references: [id])
+  productId             Int
+  product               Product  @relation(fields: [productId], references: [id])
+  serialNumber          String
+  replacementDate        DateTime
+  replacementReason     String
+  status                String    @default("ACTIVE") // ACTIVE | CANCELLED
+  inventoryId           Int?     @unique
+  inventory             Inventory? @relation(fields: [inventoryId], references: [id])
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model WarrantyReturn {
+  id            Int       @id @default(autoincrement())
+  warrantyId    Int
+  warranty      Warranty  @relation(fields: [warrantyId], references: [id])
+  productId     Int
+  product       Product  @relation(fields: [productId], references: [id])
+  inventoryId   Int?     @unique
+  inventory     Inventory? @relation(fields: [inventoryId], references: [id])
+  returnDate    DateTime
+  reason        String
+  refundAmount  Float
+  paymentMethod String
+  paymentReference String?
+  status        String    @default("RECEIVED") // RECEIVED | INSPECTED | RESTOCKED | DISPOSED
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 // ============ EXPENSE ============

@@ -15,9 +15,9 @@ export function formatDateTime(date) {
 
 export function statusBadgeClass(status) {
   const s = (status || '').toUpperCase();
-  if (['PAID', 'ACTIVE', 'IN STOCK', 'RESOLVED', 'APPROVED', 'CLOSED'].includes(s)) return 'badge badge-success';
-  if (['PARTIALLY PAID', 'LOW STOCK', 'EXPIRING SOON', 'PENDING', 'OPEN', 'NEW', 'CONTACTED'].includes(s)) return 'badge badge-warn';
-  if (['CANCELLED', 'OUT OF STOCK', 'EXPIRED', 'REJECTED', 'REFUNDED', 'OVERDUE'].includes(s)) return 'badge badge-danger';
+  if (['PAID', 'ACTIVE', 'IN STOCK', 'RESOLVED', 'APPROVED', 'CLOSED', 'RESTOCKED'].includes(s)) return 'badge badge-success';
+  if (['PARTIALLY PAID', 'LOW STOCK', 'EXPIRING SOON', 'PENDING', 'OPEN', 'NEW', 'CONTACTED', 'RECEIVED', 'INSPECTED'].includes(s)) return 'badge badge-warn';
+  if (['CANCELLED', 'OUT OF STOCK', 'EXPIRED', 'REJECTED', 'REFUNDED', 'OVERDUE', 'DISPOSED'].includes(s)) return 'badge badge-danger';
   return 'badge badge-muted';
 }
 

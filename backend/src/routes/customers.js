@@ -1,6 +1,6 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 const { generateCustomerCode } = require('../utils/codes');
 const { round2 } = require('../utils/money');
@@ -73,7 +73,7 @@ router.get('/:id', async (req, res) => {
   res.json({ ...customer, invoices, stats });
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', authorize('ADMIN'), async (req, res, next) => {
   try {
     const error = validate(req.body, { requireAll: true });
     if (error) return bad(res, error);
@@ -95,7 +95,7 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', authorize('ADMIN'), async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const error = validate(req.body, { requireAll: false });

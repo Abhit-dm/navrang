@@ -20,6 +20,7 @@ const NAV_ADMIN = [
   ] },
   { to: '/admin/payments', label: 'Payments', icon: '💳' },
   { to: '/admin/warranties', label: 'Warranties', icon: '🛡️' },
+  { to: '/admin/returns', label: 'Returns', icon: '↩️' },
   { to: '/admin/expenses', label: 'Expenses', icon: '💸' },
   { to: '/admin/employees', label: 'Employees', icon: '🧑‍💼' },
   { to: '/admin/audit-logs', label: 'Audit Logs', icon: '📝' },

@@ -1,19 +1,14 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api' });
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('navrang_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+const api = axios.create({
+  baseURL: '/api',
+  withCredentials: true,
 });
 
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('navrang_token');
-      localStorage.removeItem('navrang_user');
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }

@@ -29,6 +29,7 @@ import InvoiceView from './pages/InvoiceView.jsx';
 import Payments from './pages/Payments.jsx';
 import Warranties from './pages/Warranties.jsx';
 import WarrantyDetail from './pages/WarrantyDetail.jsx';
+import Returns from './pages/Returns.jsx';
 import Expenses from './pages/Expenses.jsx';
 import Employees from './pages/Employees.jsx';
 import Enquiries from './pages/Enquiries.jsx';
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="payments" element={<Payments />} />
         <Route path="warranties" element={<Warranties />} />
         <Route path="warranties/:id" element={<WarrantyDetail />} />
+        <Route path="returns" element={adminOnly(<Returns />)} />
         <Route path="expenses" element={adminOnly(<Expenses />)} />
         <Route path="employees" element={adminOnly(<Employees />)} />
         <Route path="enquiries" element={<Enquiries />} />

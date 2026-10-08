@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const prisma = require('../lib/prisma');
 const { authenticate, authorize } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
+const { revokeUserTokens } = require('../utils/tokenStore');
+const { isStrongPassword } = require('../utils/validation');
 
 const router = express.Router();
 router.use(authenticate);
@@ -18,8 +20,8 @@ router.get('/', authorize('ADMIN'), async (req, res) => {
 
 router.post('/', authorize('ADMIN'), async (req, res) => {
   const { name, email, password, role, phone } = req.body;
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'Bad Request', message: 'Name, email and password are required.' });
+  if (!name || !email || !isStrongPassword(password)) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Name, email and a strong password are required.' });
   }
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
   if (existing) {
@@ -53,6 +55,7 @@ router.put('/:id', authorize('ADMIN'), async (req, res) => {
 router.post('/:id/disable', authorize('ADMIN'), async (req, res) => {
   const id = Number(req.params.id);
   const user = await prisma.user.update({ where: { id }, data: { isActive: false } });
+  await revokeUserTokens(id);
   await logAudit({ userId: req.user.id, action: 'EMPLOYEE_DISABLED', entity: 'User', entityId: id });
   res.json({ id: user.id, isActive: user.isActive });
 });
@@ -60,6 +63,7 @@ router.post('/:id/disable', authorize('ADMIN'), async (req, res) => {
 router.post('/:id/enable', authorize('ADMIN'), async (req, res) => {
   const id = Number(req.params.id);
   const user = await prisma.user.update({ where: { id }, data: { isActive: true } });
+  await revokeUserTokens(id);
   await logAudit({ userId: req.user.id, action: 'EMPLOYEE_ENABLED', entity: 'User', entityId: id });
   res.json({ id: user.id, isActive: user.isActive });
 });
@@ -67,11 +71,12 @@ router.post('/:id/enable', authorize('ADMIN'), async (req, res) => {
 router.post('/:id/reset-password', authorize('ADMIN'), async (req, res) => {
   const id = Number(req.params.id);
   const { newPassword } = req.body;
-  if (!newPassword || newPassword.length < 6) {
-    return res.status(400).json({ error: 'Bad Request', message: 'Password must be at least 6 characters.' });
+  if (!isStrongPassword(newPassword)) {
+    return res.status(400).json({ error: 'Bad Request', message: 'Password must meet the configured strength requirements.' });
   }
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await prisma.user.update({ where: { id }, data: { passwordHash } });
+  await revokeUserTokens(id);
   await logAudit({ userId: req.user.id, action: 'EMPLOYEE_PASSWORD_RESET', entity: 'User', entityId: id });
   res.json({ message: 'Password reset successfully' });
 });

@@ -1,6 +1,6 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 const { round2 } = require('../utils/money');
 const { isValidPaymentMethod, parseDate } = require('../utils/status');
@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
 });
 
 // Record additional payment against an existing invoice (for due amounts)
-router.post('/', async (req, res) => {
+router.post('/', authorize('ADMIN'), async (req, res) => {
   const { invoiceId, amount, method, referenceNumber, paymentDate } = req.body;
   const bad = (message) => res.status(400).json({ error: 'Bad Request', message });
   if (!invoiceId || !method) return bad('Invoice and payment method are required.');

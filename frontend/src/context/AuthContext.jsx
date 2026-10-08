@@ -1,23 +1,33 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import api from '../api/client';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('navrang_user');
-    return stored ? JSON.parse(stored) : null;
-  });
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const restoreSession = useCallback(async () => {
+    try {
+      const { data } = await api.get('/auth/me');
+      setUser(data);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    restoreSession();
+  }, [restoreSession]);
 
   const login = useCallback(async (email, password) => {
     setLoading(true);
     setError('');
     try {
       const { data } = await api.post('/auth/login', { email, password });
-      localStorage.setItem('navrang_token', data.token);
-      localStorage.setItem('navrang_user', JSON.stringify(data.user));
       setUser(data.user);
       return data.user;
     } catch (err) {
@@ -32,10 +42,8 @@ export function AuthProvider({ children }) {
     try {
       await api.post('/auth/logout');
     } catch (e) {
-      /* ignore */
+      /* Session is cleared locally even if the server is unavailable. */
     }
-    localStorage.removeItem('navrang_token');
-    localStorage.removeItem('navrang_user');
     setUser(null);
   }, []);
 

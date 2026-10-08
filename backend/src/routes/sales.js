@@ -139,7 +139,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Core billing endpoint: create sale + invoice + reduce stock + create warranty + record payment
-router.post('/', async (req, res, next) => {
+router.post('/', authorize('ADMIN'), async (req, res, next) => {
   try {
     const {
       customerId,
@@ -202,7 +202,10 @@ router.post('/', async (req, res, next) => {
     for (const item of items) {
       const product = await prisma.product.findUnique({ where: { id: Number(item.productId) } });
       if (!product || product.status !== 'ACTIVE') return res.status(404).json({ error: 'Not Found', message: `Product ${item.productId} not found or inactive` });
-      const agg = await prisma.inventory.aggregate({ where: { productId: product.id }, _sum: { quantity: true } });
+      const agg = await prisma.inventory.aggregate({
+        where: { productId: product.id, disposition: { in: ['AVAILABLE', null] } },
+        _sum: { quantity: true },
+      });
       const available = agg._sum.quantity || 0;
       if (!settings.allowNegativeStock && Number(item.quantity) > available) {
         return bad(res, `Insufficient stock for ${product.name}. Available: ${available}, requested: ${item.quantity}`);
@@ -395,7 +398,7 @@ router.post('/', async (req, res, next) => {
 });
 
 // Edit sale details that do not change stock or totals.
-router.put('/:id', async (req, res, next) => {
+router.put('/:id', authorize('ADMIN'), async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const sale = await prisma.sale.findUnique({ where: { id }, include: { invoice: true } });

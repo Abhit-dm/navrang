@@ -5,7 +5,10 @@ async function reduceStock(productId, quantity, userId, reference, movementType 
   const settings = await prisma.businessSettings.findFirst();
   const allowNegative = settings?.allowNegativeStock || false;
 
-  const agg = await prisma.inventory.aggregate({ where: { productId }, _sum: { quantity: true } });
+  const agg = await prisma.inventory.aggregate({
+    where: { productId, disposition: { in: ['AVAILABLE', null] } },
+    _sum: { quantity: true },
+  });
   const current = agg._sum.quantity || 0;
   if (!allowNegative && current < quantity) {
     const err = new Error('Insufficient stock');
@@ -16,7 +19,7 @@ async function reduceStock(productId, quantity, userId, reference, movementType 
   let remaining = quantity;
   let cogsTotal = 0;
   const batches = await prisma.inventory.findMany({
-    where: { productId, quantity: { gt: 0 } },
+    where: { productId, quantity: { gt: 0 }, disposition: { in: ['AVAILABLE', null] } },
     orderBy: { createdAt: 'asc' },
   });
   for (const batch of batches) {
