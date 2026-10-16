@@ -5,9 +5,9 @@ billing (GST / Non-GST), invoices, payments, warranties, purchases, suppliers,
 customers, vehicles, expenses, reports, and profit calculations. Built to run
 entirely on localhost with a persistent SQLite database.
 
-> ⚠️ Demo credentials and seed data are for **development only**. Change all
-> passwords and seed data before any real-world / production use. No real
-> payment gateway is integrated — UPI/PhonePe/Google Pay/cards/net
+> No credentials are embedded in the application. Configure the administrator
+> email and strong password through the backend environment before seeding.
+> No real payment gateway is integrated — UPI/PhonePe/Google Pay/cards/net
 > banking/wallet are recorded as payment methods only.
 
 ## 1. Technology Stack
@@ -47,7 +47,7 @@ navrang-tyres/               (root: e:\navrang)
 │   │   └── index.js            Express app entry
 │   ├── prisma/
 │   │   ├── schema.prisma        all data models
-│   │   ├── seed.js               demo data
+│   │   ├── seed.js               business settings and admin provisioning
 │   │   └── migrations/
 │   ├── package.json
 │   └── .env / .env.example
@@ -65,8 +65,8 @@ From the project root (`e:\navrang`):
 
 ```powershell
 npm install                     # installs root dev tool (concurrently)
-npm run setup                   # installs backend + frontend deps, generates
-                                 # Prisma client, runs migrations, seeds demo data
+npm run setup                   # installs deps, generates Prisma client, and
+                                 # runs migrations and configured admin provisioning
 ```
 
 `npm run setup` runs, in order:
@@ -122,17 +122,17 @@ npm run dev:frontend    # http://localhost:5173
 - **Backend API:** http://localhost:5000/api
 - **Prisma Studio:** `npx prisma studio` (run inside `backend/`)
 
-## 6. Demo Credentials (development only — change before production)
+## 6. Administrator Provisioning
 
-| Role     | Email                          | Password     |
-|----------|---------------------------------|--------------|
-| ADMIN    | admin@navrangtyres.local        | Admin@123    |
-| EMPLOYEE | employee@navrangtyres.local     | Employee@123 |
-
-Seed data also includes 5 demo tyre products (MRF, CEAT, Apollo, Bridgestone,
-Michelin), 1 demo supplier, 1 demo customer ("Demo Customer", 9000000000) with
-1 demo vehicle (AP00XX0000, Hyundai Creta). All seed data is clearly labeled
-`(DEMO)` / "DEMO DATA".
+Set `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in the backend environment
+before running `npm run seed` from `backend/`. The password must be at least
+12 characters and include uppercase, lowercase, numeric, and symbol characters.
+The seed updates the password hash for an existing administrator with that
+email, or creates the account if it does not exist. Passwords are never logged;
+do not commit environment files or share the password in source control. Run the
+seed against the same `DATABASE_URL` used by the API. Existing records are kept;
+review old sample transactions separately before production rather than deleting
+sales, invoices, warranties, or their linked products automatically.
 
 ## 7. Core Features Implemented
 

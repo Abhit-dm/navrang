@@ -13,7 +13,7 @@ The application was audited and remediated for authentication, authorization, in
 - **Input validation:** Added shared sanitization, integer parsing, email validation, URL validation, role validation, and object validation utilities.
 - **Secrets and startup:** Added production validation requiring a strong JWT secret, a local SQLite database URL, and a production frontend origin.
 - **Error handling:** Production errors no longer disclose stack traces or internal details.
-- **Seed credentials:** Removed predictable credentials. Seed passwords are generated securely and supplied through environment variables.
+- **Seed credentials:** Admin credentials are supplied through environment variables; rerunning the seed synchronizes an existing account's bcrypt hash without logging the password.
 - **Dependencies:** Removed the vulnerable nodemon development dependency chain, switched to Node's built-in watch mode, and refreshed the lockfile.
 - **Application factory:** Added a reusable Express application factory and a minimal production entry point.
 
@@ -30,7 +30,7 @@ The application was audited and remediated for authentication, authorization, in
 
 - Set JWT_SECRET to at least 32 random characters before production startup.
 - Set CORS_ORIGIN to the exact production frontend origin.
-- Set SEED_ADMIN_PASSWORD and SEED_EMPLOYEE_PASSWORD before running the seed command.
+- Set `SEED_ADMIN_EMAIL` and a strong `SEED_ADMIN_PASSWORD` before running the seed command.
 - Run prisma migrate deploy in production and ensure the database migration is applied.
 - Test logout, expired-token rejection, disabled-account rejection, and password-change invalidation in an integration environment.
 

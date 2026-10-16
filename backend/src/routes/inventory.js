@@ -111,7 +111,7 @@ router.post('/adjust', authorize('ADMIN'), async (req, res) => {
 
   if (type !== 'ADJUSTMENT_IN') {
     const agg = await prisma.inventory.aggregate({
-      where: { productId: product.id, disposition: { in: ['AVAILABLE', null] } },
+      where: { productId: product.id, disposition: 'AVAILABLE' },
       _sum: { quantity: true },
     });
     const current = agg._sum.quantity || 0;
@@ -121,7 +121,7 @@ router.post('/adjust', authorize('ADMIN'), async (req, res) => {
     // reduce from the most recent batch(es)
     let remaining = Number(quantity);
     const batches = await prisma.inventory.findMany({
-      where: { productId: product.id, quantity: { gt: 0 }, disposition: { in: ['AVAILABLE', null] } },
+      where: { productId: product.id, quantity: { gt: 0 }, disposition: 'AVAILABLE' },
       orderBy: { createdAt: 'asc' },
     });
     for (const batch of batches) {

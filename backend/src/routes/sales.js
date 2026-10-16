@@ -203,7 +203,7 @@ router.post('/', authorize('ADMIN'), async (req, res, next) => {
       const product = await prisma.product.findUnique({ where: { id: Number(item.productId) } });
       if (!product || product.status !== 'ACTIVE') return res.status(404).json({ error: 'Not Found', message: `Product ${item.productId} not found or inactive` });
       const agg = await prisma.inventory.aggregate({
-        where: { productId: product.id, disposition: { in: ['AVAILABLE', null] } },
+        where: { productId: product.id, disposition: 'AVAILABLE' },
         _sum: { quantity: true },
       });
       const available = agg._sum.quantity || 0;

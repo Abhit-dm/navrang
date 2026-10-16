@@ -4,6 +4,7 @@ import api from '../../api/client.js';
 import { telLink, whatsappLink } from '../../utils/format.js';
 
 const EMPTY = { name: '', phone: '', email: '', subject: '', message: '', website: '' };
+const MAP_QUERY = '16.512364,80.628006';
 
 function validate(f) {
   const e = {};
@@ -46,11 +47,10 @@ export default function Contact() {
 
   const call = telLink(settings.phone);
   const wa = whatsappLink(settings.whatsapp || settings.phone);
-  const mapSrc = settings.address ? `https://www.google.com/maps?q=${encodeURIComponent(settings.address)}&output=embed` : null;
+  const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(MAP_QUERY)}&output=embed`;
   const rows = [
     ['📞', 'Phone', settings.phone && <a href={call}>{settings.phone}</a>],
     ['💬', 'WhatsApp', wa && settings.whatsapp && <a href={wa} target="_blank" rel="noreferrer">{settings.whatsapp}</a>],
-    ['✉️', 'Email', settings.email && <a href={`mailto:${settings.email}`}>{settings.email}</a>],
     ['📍', 'Address', settings.address],
     ['🕒', 'Business Hours', settings.businessHours],
   ].filter((r) => r[2]);

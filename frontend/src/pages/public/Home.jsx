@@ -6,13 +6,13 @@ import TyreIcon from '../../components/public/TyreIcon.jsx';
 import { telLink, whatsappLink } from '../../utils/format.js';
 
 const SERVICES = [
-  ['🛞', 'Tyre Replacement'], ['🎯', 'Wheel Alignment'], ['⚖️', 'Wheel Balancing'], ['🔄', 'Tyre Rotation'],
-  ['🔧', 'Puncture Repair'], ['🔍', 'Tyre Inspection'], ['💨', 'Nitrogen Filling'],
+  ['🛞', 'Bike Tyre Replacement'], ['🔧', 'Bike Puncture Repair'],
+  ['🔍', 'Bike Tyre Inspection'], ['💨', 'Nitrogen Filling'],
 ];
 const WHY = [
-  ['✅', 'Quality Products', 'Tyres from trusted brands for cars, bikes and commercial vehicles.'],
+  ['✅', 'Quality Products', 'Tyres from trusted brands for motorcycles and scooters.'],
   ['🤝', 'Trusted Service', 'Honest advice and careful fitting on every job.'],
-  ['👨‍🔧', 'Experienced Team', 'A team that handles fitting, balancing and alignment every day.'],
+  ['👨‍🔧', 'Experienced Team', 'An experienced team for motorcycle tyre fitting and aftercare.'],
   ['💰', 'Competitive Pricing', 'Clear, fair pricing with no hidden charges.'],
   ['📞', 'Customer Support', 'Call or WhatsApp us any time during business hours.'],
 ];
@@ -38,14 +38,14 @@ export default function Home() {
           <div>
             <h1>NAVRANG <span>TYRES</span></h1>
             <p className="tag">{settings.tagline || 'Quality Tyres. Trusted Service.'}</p>
-            <p className="sub">Tyres, fitting and care for your vehicle, all in one place. Browse our range online and visit us or call to get the right tyres fitted.</p>
+            <p className="sub">Motorcycle tyres, fitting and care in one place. Browse our range online, then visit or call us to find the right tyres for your bike.</p>
             <div className="pub-hero-actions">
               <Link className="btn btn-secondary btn-lg" to="/products">Explore Products</Link>
               <Link className="btn btn-ghost-light btn-lg" to="/contact">Contact Us</Link>
               {call && <a className="btn btn-accent btn-lg" href={call}>Call Now</a>}
             </div>
           </div>
-          <div className="pub-hero-art"><TyreIcon /></div>
+          <div className="pub-hero-art"><TyreIcon showMonogram /></div>
         </div>
       </section>
 
@@ -54,7 +54,7 @@ export default function Home() {
           <div>
             <h2>About Navrang Tyres</h2>
             <div className="pub-underline" />
-            <p className="lead">{settings.aboutText || 'Navrang Tyres supplies and fits tyres for cars, bikes and commercial vehicles. We focus on helping every customer choose the right tyre for their vehicle and driving needs.'}</p>
+            <p className="lead">{settings.aboutText || 'Navrang Tyres specializes in tyres for motorcycles and scooters. We help riders choose the right tyre for their bike, budget and riding needs.'}</p>
             <Link className="btn btn-primary" to="/about">About Us</Link>
           </div>
           <div className="pub-about-art"><TyreIcon /></div>

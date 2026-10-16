@@ -37,11 +37,6 @@ export default function Login() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <div className="login-demo">
-          <strong>Demo credentials (development only):</strong><br />
-          Admin: admin@navrangtyres.local / Admin@123<br />
-          Employee: employee@navrangtyres.local / Employee@123
-        </div>
       </div>
     </div>
   );

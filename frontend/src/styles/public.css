@@ -113,7 +113,11 @@
 .pub-info-row:last-child { border-bottom: 0; }
 .pub-info-row .pub-icon { margin: 0; flex-shrink: 0; }
 .pub-info-row strong { display: block; font-size: 0.85rem; color: var(--muted); font-weight: 600; }
-.pub-info-row a { color: var(--secondary); }
+.pub-info-row a,
+.pub-info-row a:visited,
+.pub-info-row a:hover,
+.pub-info-row a:active,
+.pub-info-row a:focus { color: #000000; }
 .pub-form .form-group { margin-bottom: 14px; }
 .pub-form label { display: block; font-size: 0.86rem; font-weight: 600; margin-bottom: 4px; }
 .pub-form input, .pub-form textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }

@@ -48,7 +48,7 @@ function stockStatus(qty, min) {
 
 async function getAvailableStock(productId) {
   const agg = await prisma.inventory.aggregate({
-    where: { productId, disposition: { in: ['AVAILABLE', null] } },
+    where: { productId, disposition: 'AVAILABLE' },
     _sum: { quantity: true },
   });
   return agg._sum.quantity || 0;

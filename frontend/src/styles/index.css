@@ -219,7 +219,6 @@ table.data-table tr:hover td { background: #fafafa; }
 }
 .login-card h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
 .login-card .tagline { color: var(--secondary); font-weight: 600; font-size: 0.85rem; margin-bottom: 22px; }
-.login-demo { margin-top: 18px; padding: 12px; background: #f9fafb; border-radius: 8px; font-size: 0.78rem; color: var(--muted); }
 
 /* ============ BILLING CART ============ */
 .cart-table td, .cart-table th { font-size: 0.85rem; }

@@ -3,16 +3,16 @@ import { Link, useOutletContext } from 'react-router-dom';
 
 // Default wording is deliberately generic; the shop can replace each block in Admin > Settings.
 const DEFAULTS = {
-  aboutText: 'Navrang Tyres supplies and fits tyres for cars, bikes and commercial vehicles. We help customers choose the right tyre for their vehicle, budget and driving needs, and we look after it with proper fitting and follow-up care.',
-  missionText: 'To provide reliable tyres and honest, dependable service so that every customer can drive with confidence.',
+  aboutText: 'Navrang Tyres specializes in tyres for motorcycles and scooters. We help riders choose the right tyre for their bike, budget and riding needs, with careful fitting and follow-up care.',
+  missionText: 'To provide reliable motorcycle tyres and honest, dependable service so every rider can ride with confidence.',
   visionText: 'To be the tyre shop customers trust first for quality products, fair prices and helpful service.',
   commitmentText: 'We are committed to clear pricing, genuine products and respectful service, and to standing behind the work we do.',
 };
 
 const REASONS = [
-  'Wide choice of tyres for cars, bikes, SUVs and commercial vehicles',
-  'Honest advice on the right tyre for your vehicle',
-  'Fitting, balancing and alignment services under one roof',
+  'A wide choice of tyres for motorcycles and scooters',
+  'Honest advice on the right tyre for your motorcycle',
+  'Bike tyre fitting and puncture repair under one roof',
   'Clear pricing and proper invoices for every purchase',
   'Friendly support by phone and WhatsApp',
 ];

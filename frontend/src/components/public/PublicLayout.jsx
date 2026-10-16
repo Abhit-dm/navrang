@@ -66,7 +66,6 @@ export default function PublicLayout() {
           <div>
             <h4>Contact</h4>
             {settings.phone && <p>Phone: <a href={call}>{settings.phone}</a></p>}
-            {settings.email && <p>Email: <a href={`mailto:${settings.email}`}>{settings.email}</a></p>}
             {settings.address && <p>Address: {settings.address}</p>}
             {settings.businessHours && <p>Hours: {settings.businessHours}</p>}
           </div>

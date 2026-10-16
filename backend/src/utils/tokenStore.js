@@ -12,13 +12,10 @@ async function registerToken(jti, userId, expiresAt) {
 
 async function revokeToken(jti, userId) {
   if (!jti) return false;
-  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-  await prisma.tokenBlacklist.upsert({
-    where: { jti },
-    update: { userId, expiresAt },
-    create: { jti, userId, expiresAt },
+  const result = await prisma.tokenBlacklist.deleteMany({
+    where: { jti, userId },
   });
-  return true;
+  return result.count > 0;
 }
 
 async function revokeUserTokens(userId) {
@@ -31,8 +28,8 @@ async function revokeUserTokens(userId) {
 
 async function isTokenRevoked(jti, client = prisma) {
   if (!jti) return false;
-  const revoked = await client.tokenBlacklist.findUnique({ where: { jti } });
-  return Boolean(revoked && revoked.expiresAt > new Date());
+  const active = await client.tokenBlacklist.findUnique({ where: { jti } });
+  return !active || active.expiresAt <= new Date();
 }
 
 async function pruneExpiredTokens() {
