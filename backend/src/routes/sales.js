@@ -2,11 +2,12 @@ const express = require('express');
 const prisma = require('../lib/prisma');
 const { authenticate, authorize } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
-const { generateCustomerCode, generateSaleNumber, generateInvoiceNumber, generateWarrantyCode } = require('../utils/codes');
+const { generateCustomerCode, generateSaleNumber, generateInvoiceNumber } = require('../utils/codes');
 const { round2, percentOf } = require('../utils/money');
 const { reduceStock } = require('../utils/stock');
 const { isValidPaymentMethod, invoiceStatus, withStatus, parseDate } = require('../utils/status');
 const { cancelSale } = require('../utils/saleCancel');
+const { parseDateOnly, addWarrantyDuration } = require('../utils/warrantyDates');
 
 const router = express.Router();
 router.use(authenticate);
@@ -156,6 +157,7 @@ router.post('/', authorize('ADMIN'), async (req, res, next) => {
       saleDate,
       dueDate,
       notes,
+      warranties: requestedWarranties,
     } = req.body;
 
     const customerName = String(customerDetails?.name || '').trim();
@@ -226,6 +228,53 @@ router.post('/', authorize('ADMIN'), async (req, res, next) => {
         gstPercent, discount: lineDiscount, total: round2(taxable + gst), _product: product,
       });
     }
+
+    if (requestedWarranties !== undefined && (!Array.isArray(requestedWarranties)
+      || requestedWarranties.length !== saleItemsData.length
+      || requestedWarranties.some((warranty) => !warranty || typeof warranty !== 'object'))) {
+      return bad(res, 'Provide one warranty selection for each sale product.');
+    }
+
+    const warrantyConfigs = [];
+    const warrantyByProduct = new Map((requestedWarranties || []).map((w) => [Number(w.productId), w]));
+    if (requestedWarranties && (warrantyByProduct.size !== requestedWarranties.length
+      || saleItemsData.some((item) => !warrantyByProduct.has(item.productId)))) {
+      return bad(res, 'Warranty selections must match the products in this sale.');
+    }
+    const defaultStart = saleDateValue || new Date();
+    const defaultStartInput = defaultStart.toISOString().slice(0, 10);
+    for (const item of saleItemsData) {
+      const provided = warrantyByProduct.get(item.productId);
+      const applicable = provided
+        ? provided.status === 'APPLICABLE'
+        : item._product.warrantyType && item._product.warrantyType !== 'No Warranty' && Number(item._product.warrantyDuration) > 0;
+      if (provided && !['APPLICABLE', 'NONE'].includes(provided.status)) return bad(res, 'Select whether each product has a warranty.');
+
+      const start = parseDateOnly(provided?.startDate || defaultStartInput);
+      if (!start) return bad(res, 'Enter a valid warranty start date.');
+      const years = provided ? Number(provided.years) : Math.floor(Number(item._product.warrantyDuration || 0) / 12);
+      const months = provided ? Number(provided.months) : Number(item._product.warrantyDuration || 0) % 12;
+      const days = provided ? Number(provided.days) : 0;
+      if (provided?.terms !== undefined && (typeof provided.terms !== 'string' || provided.terms.length > 2000)) {
+        return bad(res, 'Warranty notes must be 2000 characters or fewer.');
+      }
+      if (![years, months, days].every((value) => Number.isSafeInteger(value) && value >= 0)
+        || years > 100 || months > 1200 || days > 36500) {
+        return bad(res, 'Warranty years, months, and days must be valid non-negative whole numbers.');
+      }
+
+      if (!applicable) {
+        warrantyConfigs.push({
+          item, applicable: false, start, end: start, years: 0, months: 0, days: 0, terms: provided?.terms,
+        });
+        continue;
+      }
+      if (years + months + days === 0) return bad(res, `Enter a positive warranty duration for ${item._product.name}.`);
+      const calculatedEnd = addWarrantyDuration(start, years, months, days);
+      const end = provided?.endDate ? parseDateOnly(provided.endDate) : calculatedEnd;
+      if (!end || end < start) return bad(res, 'Warranty expiry must be a valid date on or after the start date.');
+      warrantyConfigs.push({ item, applicable: true, start, end, years, months, days, terms: provided?.terms });
+    }
     // Item discounts and the overall discount both come off the total; GST is charged on each line after its own discount.
     const itemDiscountTotal = round2(saleItemsData.reduce((a, i) => a + i.discount, 0));
     const totalDiscount = round2(itemDiscountTotal + round2(discount || 0));
@@ -291,107 +340,124 @@ router.post('/', authorize('ADMIN'), async (req, res, next) => {
     if (paid >= grandTotal && grandTotal > 0) paymentStatus = 'PAID';
     else if (paid > 0) paymentStatus = 'PARTIALLY PAID';
 
-    const sale = await prisma.sale.create({
-      data: {
-        saleNumber,
-        customerId: customer.id,
-        vehicleId: saleVehicleId,
-        employeeId: req.user.id,
-        subtotal,
-        discount: totalDiscount,
-        gstAmount: totalGst,
-        total: grandTotal,
-        paymentMethod: paymentMethod || null,
-        isGst: !!isGst,
-        saleDate: saleDateValue || new Date(),
-        notes: notes || null,
-        items: {
-          create: saleItemsData.map((i) => ({
-            productId: i.productId, quantity: i.quantity, sellingPrice: i.sellingPrice, purchasePrice: i.purchasePrice,
-            gstPercent: i.gstPercent, discount: i.discount, total: i.total,
-          })),
-        },
-      },
-    });
-
-    const invoice = await prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        saleId: sale.id,
-        customerId: customer.id,
-        vehicleId: saleVehicleId,
-        employeeId: req.user.id,
-        isGst: !!isGst,
-        invoiceDate: sale.saleDate,
-        dueDate: dueDateValue,
-        subtotal,
-        discount: totalDiscount,
-        taxableAmount,
-        cgst,
-        sgst,
-        igst,
-        grandTotal,
-        paidAmount: paid,
-        dueAmount: due,
-        paymentStatus,
-        items: {
-          create: saleItemsData.map((i) => ({
-            productId: i.productId, quantity: i.quantity, rate: i.sellingPrice, discount: i.discount, gstPercent: i.gstPercent, amount: i.total,
-          })),
-        },
-      },
-      include: { items: true },
-    });
-
-    for (const item of saleItemsData) {
-      await reduceStock(item.productId, item.quantity, req.user.id, invoiceNumber, 'SALE');
-    }
-
-    if (paid > 0) {
-      await prisma.payment.create({
+    const nextWarrantyNumber = await prisma.warranty.count();
+    const { sale, invoice, warranties } = await prisma.$transaction(async (tx) => {
+      const sale = await tx.sale.create({
         data: {
-          invoiceId: invoice.id,
+          saleNumber,
           customerId: customer.id,
-          amount: paid,
-          method: paymentMethod,
-          referenceNumber: paymentReference || null,
-          status: 'PAID',
-          paidAt: paymentDateValue || new Date(),
+          vehicleId: saleVehicleId,
+          employeeId: req.user.id,
+          subtotal,
+          discount: totalDiscount,
+          gstAmount: totalGst,
+          total: grandTotal,
+          paymentMethod: paymentMethod || null,
+          isGst: !!isGst,
+          saleDate: saleDateValue || new Date(),
+          notes: notes || null,
+          items: {
+            create: saleItemsData.map((i) => ({
+              productId: i.productId, quantity: i.quantity, sellingPrice: i.sellingPrice, purchasePrice: i.purchasePrice,
+              gstPercent: i.gstPercent, discount: i.discount, total: i.total,
+            })),
+          },
         },
+        include: { items: true },
       });
-    }
 
-    const warranties = [];
-    for (const item of saleItemsData) {
-      const product = item._product;
-      if (product.warrantyType && product.warrantyType !== 'No Warranty' && Number(product.warrantyDuration) > 0) {
-        const warrantyCode = await generateWarrantyCode();
-        const start = new Date();
-        const end = new Date(start);
-        end.setMonth(end.getMonth() + Number(product.warrantyDuration));
-        warranties.push(await prisma.warranty.create({
+      const invoice = await tx.invoice.create({
+        data: {
+          invoiceNumber,
+          saleId: sale.id,
+          customerId: customer.id,
+          vehicleId: saleVehicleId,
+          employeeId: req.user.id,
+          isGst: !!isGst,
+          invoiceDate: sale.saleDate,
+          dueDate: dueDateValue,
+          subtotal,
+          discount: totalDiscount,
+          taxableAmount,
+          cgst,
+          sgst,
+          igst,
+          grandTotal,
+          paidAmount: paid,
+          dueAmount: due,
+          paymentStatus,
+          items: {
+            create: saleItemsData.map((i) => ({
+              productId: i.productId, quantity: i.quantity, rate: i.sellingPrice, discount: i.discount, gstPercent: i.gstPercent, amount: i.total,
+            })),
+          },
+        },
+        include: { items: true },
+      });
+
+      for (const item of saleItemsData) {
+        await reduceStock(item.productId, item.quantity, req.user.id, invoiceNumber, 'SALE', tx);
+      }
+
+      if (paid > 0) {
+        await tx.payment.create({
           data: {
-            warrantyCode, customerId: customer.id, vehicleId: saleVehicleId, productId: product.id, invoiceId: invoice.id, saleId: sale.id,
-            purchaseDate: start, warrantyStart: start, warrantyEnd: end, warrantyType: product.warrantyType,
-            warrantyDuration: product.warrantyDuration, status: 'ACTIVE',
+            invoiceId: invoice.id,
+            customerId: customer.id,
+            amount: paid,
+            method: paymentMethod,
+            referenceNumber: paymentReference || null,
+            status: 'PAID',
+            paidAt: paymentDateValue || new Date(),
+          },
+        });
+      }
+
+      const warrantyRows = [];
+      for (let index = 0; index < warrantyConfigs.length; index += 1) {
+        const config = warrantyConfigs[index];
+        if (!requestedWarranties && !config.applicable) continue;
+        const item = sale.items.find((saleItem) => saleItem.productId === config.item.productId);
+        const warrantyCode = `WAR-${new Date().getFullYear()}-${String(nextWarrantyNumber + index + 1).padStart(6, '0')}`;
+        warrantyRows.push(await tx.warranty.create({
+          data: {
+            warrantyCode,
+            customerId: customer.id,
+            vehicleId: saleVehicleId,
+            productId: config.item.productId,
+            invoiceId: invoice.id,
+            saleId: sale.id,
+            saleItemId: item.id,
+            purchaseDate: config.start,
+            warrantyStart: config.start,
+            warrantyEnd: config.end,
+            warrantyType: config.applicable ? 'Manual Warranty' : 'No Warranty',
+            warrantyDuration: config.years * 12 + config.months,
+            warrantyYears: config.years,
+            warrantyMonths: config.months,
+            warrantyDays: config.days,
+            warrantyTerms: config.terms ? String(config.terms).trim().slice(0, 2000) : null,
+            status: config.applicable ? 'ACTIVE' : 'NO WARRANTY',
           },
         }));
       }
-    }
+
+      const fullInvoice = await tx.invoice.findUnique({
+        where: { id: invoice.id },
+        include: {
+          customer: true, vehicle: true,
+          employee: { select: { id: true, name: true, email: true, role: true } },
+          items: { include: { product: true } }, payments: true, warranties: true, sale: true,
+        },
+      });
+      return { sale, invoice: fullInvoice, warranties: warrantyRows };
+    });
 
     await logAudit({ userId: req.user.id, action: 'SALE_CREATED', entity: 'Sale', entityId: sale.id });
     await logAudit({ userId: req.user.id, action: 'INVOICE_CREATED', entity: 'Invoice', entityId: invoice.id });
     if (paid > 0) await logAudit({ userId: req.user.id, action: 'PAYMENT_RECORDED', entity: 'Invoice', entityId: invoice.id, details: { amount: paid } });
 
-    const fullInvoice = await prisma.invoice.findUnique({
-      where: { id: invoice.id },
-      include: {
-        customer: true, vehicle: true,
-        employee: { select: { id: true, name: true, email: true, role: true } },
-        items: { include: { product: true } }, payments: true, warranties: true, sale: true,
-      },
-    });
-    res.status(201).json({ sale, invoice: withStatus(fullInvoice), warranties });
+    res.status(201).json({ sale, invoice: withStatus(invoice), warranties });
   } catch (err) {
     next(err);
   }

@@ -111,6 +111,8 @@ From the project root:
 npm run dev
 ```
 This starts backend (port 5000) and frontend (port 5173) together via `concurrently`.
+After pulling database schema changes, run `npx prisma migrate deploy` and
+`npm run prisma:generate` from `backend/` before starting the API.
 
 Or run separately:
 ```powershell
@@ -158,9 +160,11 @@ sales, invoices, warranties, or their linked products automatically.
   Banking / Wallet / Cash / Cash on Delivery recorded as payment methods with
   optional reference numbers; PAID / PARTIALLY PAID / PENDING tracking with
   due-amount calculation and additional payment recording against dues.
-- **Warranties:** auto-created on sale when a product has a warranty type,
-  auto-calculated end date, status computed (ACTIVE / EXPIRING SOON /
-  EXPIRED), claim workflow.
+- **Warranties:** configured per product during sale (or defaulted from the
+  product's warranty settings), with custom years/months/days, editable dates
+  and notes, sale/invoice links, searchable/date-filtered management, printable
+  certificates, date-derived ACTIVE / EXPIRING SOON / EXPIRED statuses, and the
+  existing claim workflow. No-warranty selections are recorded with the sale.
 - **Expenses & Profit:** Gross Profit = Revenue − COGS (COGS from recorded
   purchase cost of sold inventory, not "all purchases"), Net Profit = Gross
   Profit − Expenses, plus a clearly-labeled separate "Billing vs Purchase
