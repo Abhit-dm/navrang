@@ -8,6 +8,7 @@ const NAV_ADMIN = [
   { to: '/admin/products', label: 'Products', icon: '🛞' },
   { to: '/admin/sales', label: 'Sales', icon: '💰', end: true },
   { to: '/admin/sales/new', label: 'New Sale', icon: '🧮' },
+  { to: '/admin/warranties', label: 'Warranty Management', icon: '🛡️' },
   { to: '/admin/invoices', label: 'Invoices', icon: '📄' },
   { to: '/admin/enquiries', label: 'Contact Enquiries', icon: '✉️' },
   { to: '/admin/reports', label: 'Reports', icon: '📈' },
@@ -19,7 +20,6 @@ const NAV_ADMIN = [
     { to: '/admin/suppliers', label: 'Suppliers' },
   ] },
   { to: '/admin/payments', label: 'Payments', icon: '💳' },
-  { to: '/admin/warranties', label: 'Warranties', icon: '🛡️' },
   { to: '/admin/returns', label: 'Returns', icon: '↩️' },
   { to: '/admin/expenses', label: 'Expenses', icon: '💸' },
   { to: '/admin/employees', label: 'Employees', icon: '🧑‍💼' },
@@ -32,11 +32,11 @@ const NAV_EMPLOYEE = [
   { to: '/admin/products', label: 'Products', icon: '🛞' },
   { to: '/admin/sales', label: 'Sales', icon: '💰', end: true },
   { to: '/admin/sales/new', label: 'New Sale', icon: '🧮' },
+  { to: '/admin/warranties', label: 'Warranty Management', icon: '🛡️' },
   { to: '/admin/invoices', label: 'Invoices', icon: '📄' },
   { to: '/admin/enquiries', label: 'Contact Enquiries', icon: '✉️' },
   { to: '/admin/vehicles', label: 'Vehicles', icon: '🚗' },
   { to: '/admin/inventory', label: 'Inventory', icon: '📦' },
-  { to: '/admin/warranties', label: 'Warranties', icon: '🛡️' },
 ];
 
 export default function Layout() {

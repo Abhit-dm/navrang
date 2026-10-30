@@ -45,7 +45,7 @@ export default function Home() {
               {call && <a className="btn btn-accent btn-lg" href={call}>Call Now</a>}
             </div>
           </div>
-          <div className="pub-hero-art"><TyreIcon showMonogram /></div>
+          <div className="pub-hero-art"><TyreIcon showMonogram logoUrl={settings.logoUrl} /></div>
         </div>
       </section>
 

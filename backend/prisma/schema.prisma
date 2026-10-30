@@ -266,6 +266,7 @@ model SaleItem {
   gstPercent    Float     @default(0)
   discount      Float     @default(0)
   total         Float
+  warranty      Warranty?
 }
 
 // ============ INVOICE ============
@@ -344,12 +345,17 @@ model Warranty {
   invoice         Invoice?  @relation(fields: [invoiceId], references: [id])
   saleId          Int?
   sale            Sale?     @relation(fields: [saleId], references: [id])
+  saleItemId      Int?      @unique
+  saleItem        SaleItem? @relation(fields: [saleItemId], references: [id], onDelete: SetNull)
   serialNumber    String?
   purchaseDate    DateTime
   warrantyStart   DateTime
   warrantyEnd     DateTime
   warrantyType    String    @default("Manufacturer Warranty")
-  warrantyDuration Int      @default(0) // months
+  warrantyDuration Int       @default(0) // legacy duration in months; new records use whole warrantyYears
+  warrantyYears   Int       @default(0)
+  warrantyMonths  Int       @default(0) // retained for existing records
+  warrantyDays    Int       @default(0) // retained for existing records
   warrantyTerms   String?
   status          String    @default("ACTIVE") // ACTIVE/EXPIRING SOON/EXPIRED/CLAIMED/REPLACED/RETURNED
   claimStatus     String    @default("NONE")

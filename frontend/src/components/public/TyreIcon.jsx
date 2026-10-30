@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function TyreIcon({ className, title = 'Motorcycle tyre', showMonogram = false }) {
+export default function TyreIcon({ className, title = 'Motorcycle tyre', showMonogram = false, logoUrl }) {
   const treadAngles = Array.from({ length: 36 }, (_, index) => index * 10);
   const spokeAngles = Array.from({ length: 10 }, (_, index) => index * 36);
   return (
@@ -22,10 +22,18 @@ export default function TyreIcon({ className, title = 'Motorcycle tyre', showMon
         <circle key={angle} cx="120" cy="91" r="3" fill="#090b0e" transform={`rotate(${angle * 2} 120 120)`} />
       ))}
       <circle cx="120" cy="120" r="24" fill="#080a0c" stroke="#4a5056" strokeWidth="2" />
-      {showMonogram ? (
-        <g textAnchor="middle" dominantBaseline="central" fontFamily="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif" fontSize="27" fontWeight="900" fontStyle="italic">
-          <text x="108" y="120" fill="#dc2626">N</text>
-          <text x="132" y="120" fill="#ffffff">T</text>
+      {logoUrl ? (
+        <>
+          <rect x="83" y="101" width="74" height="38" rx="5" fill="#ffffff" />
+          <image href={logoUrl} x="86" y="104" width="68" height="32" preserveAspectRatio="xMidYMid meet" />
+        </>
+      ) : showMonogram ? (
+        <g textAnchor="middle" dominantBaseline="central" fontFamily="Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif" fontWeight="900" fontStyle="italic">
+          <circle cx="120" cy="120" r="32" fill="#ffffff" />
+          <path d="M91 120 A29 29 0 0 1 149 120" fill="none" stroke="#dc2626" strokeWidth="5" strokeLinecap="round" />
+          <path d="M149 120 A29 29 0 0 1 91 120" fill="none" stroke="#0b1f3a" strokeWidth="5" strokeLinecap="round" />
+          <text x="110" y="121" fill="#dc2626" fontSize="23">N</text>
+          <text x="131" y="121" fill="#0b1f3a" fontSize="23">T</text>
         </g>
       ) : (
         <circle cx="120" cy="120" r="10" fill="#b6bdc3" stroke="#4b5259" strokeWidth="2" />

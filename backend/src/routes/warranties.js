@@ -4,52 +4,93 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { logAudit } = require('../utils/audit');
 const { round2 } = require('../utils/money');
 const { reduceStock } = require('../utils/stock');
+const { parseDateOnly, addWarrantyDuration, computeWarrantyStatus } = require('../utils/warrantyDates');
 
 const router = express.Router();
 router.use(authenticate);
-
-function computeStatus(endDate, expiryDays) {
-  const now = new Date();
-  const end = new Date(endDate);
-  const diffDays = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return 'EXPIRED';
-  if (diffDays <= expiryDays) return 'EXPIRING SOON';
-  return 'ACTIVE';
-}
 
 function bad(res, message) {
   return res.status(400).json({ error: 'Bad Request', message });
 }
 
 router.get('/', async (req, res) => {
-  const { search, customerId, status } = req.query;
+  const { search, customerId, productId, customer, product, invoiceNumber, status, startFrom, startTo, endFrom, endTo } = req.query;
   const where = {};
-  if (customerId) where.customerId = Number(customerId);
-  if (search) {
-    where.OR = [
-      { warrantyCode: { contains: search } },
-      { serialNumber: { contains: search } },
-      { customer: { name: { contains: search } } },
-      { customer: { phone: { contains: search } } },
-      { vehicle: { vehicleNumber: { contains: search } } },
-      { product: { name: { contains: search } } },
-    ];
+  if (customerId) {
+    const id = Number(customerId);
+    if (!Number.isSafeInteger(id) || id <= 0) return bad(res, 'Invalid customer filter.');
+    where.customerId = id;
   }
+  if (productId) {
+    const id = Number(productId);
+    if (!Number.isSafeInteger(id) || id <= 0) return bad(res, 'Invalid product filter.');
+    where.productId = id;
+  }
+  const textFilters = [];
+  if (customer) {
+    const query = String(customer).trim().slice(0, 100);
+    textFilters.push({ OR: [{ customer: { name: { contains: query } } }, { customer: { phone: { contains: query } } }] });
+  }
+  if (product) {
+    const query = String(product).trim().slice(0, 100);
+    textFilters.push({ OR: [
+      { product: { name: { contains: query } } },
+      { product: { brand: { contains: query } } },
+      { product: { pattern: { contains: query } } },
+    ] });
+  }
+  if (invoiceNumber) textFilters.push({ invoice: { invoiceNumber: { contains: String(invoiceNumber).trim().slice(0, 100) } } });
+  const startRange = {};
+  const endRange = {};
+  for (const [value, range, upper] of [
+    [startFrom, startRange, false], [startTo, startRange, true],
+    [endFrom, endRange, false], [endTo, endRange, true],
+  ]) {
+    if (value) {
+      const date = parseDateOnly(String(value));
+      if (!date) return bad(res, 'Invalid warranty date filter.');
+      range[upper ? 'lte' : 'gte'] = upper ? new Date(date.getTime() + 24 * 60 * 60 * 1000 - 1) : date;
+    }
+  }
+  if (Object.keys(startRange).length) where.warrantyStart = startRange;
+  if (Object.keys(endRange).length) where.warrantyEnd = endRange;
+  if (search) {
+    const query = String(search).trim().slice(0, 100);
+    textFilters.push({ OR: [
+      { warrantyCode: { contains: query } },
+      { serialNumber: { contains: query } },
+      { customer: { name: { contains: query } } },
+      { customer: { phone: { contains: query } } },
+      { vehicle: { vehicleNumber: { contains: query } } },
+      { product: { name: { contains: query } } },
+      { product: { brand: { contains: query } } },
+      { product: { pattern: { contains: query } } },
+      { invoice: { invoiceNumber: { contains: query } } },
+      { sale: { saleNumber: { contains: query } } },
+    ] });
+  }
+  if (textFilters.length) where.AND = textFilters;
   const settings = (await prisma.businessSettings.findFirst()) || { warrantyExpiryDays: 30 };
   let warranties = await prisma.warranty.findMany({
     where,
     include: {
-      customer: true, vehicle: true, product: true, invoice: true,
+      customer: true, vehicle: true, product: true, invoice: true, sale: true,
       claims: true, replacements: { include: { product: true, inventory: true } },
       returns: { include: { product: true, inventory: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
   warranties = warranties.map((w) => {
-    const computed = computeStatus(w.warrantyEnd, settings.warrantyExpiryDays);
-    return { ...w, computedStatus: computed, status: w.status === 'ACTIVE' && computed === 'EXPIRED' ? 'EXPIRED' : w.status };
+    const computed = w.status === 'NO WARRANTY'
+      ? 'NO WARRANTY'
+      : computeWarrantyStatus(w.warrantyEnd, settings.warrantyExpiryDays);
+    return { ...w, computedStatus: computed };
   });
-  if (status) warranties = warranties.filter((w) => w.status === status || w.computedStatus === status);
+  if (status) warranties = warranties.filter((w) => (
+    ['ACTIVE', 'EXPIRING SOON', 'EXPIRED', 'NO WARRANTY'].includes(status)
+      ? w.computedStatus === status
+      : w.status === status
+  ));
   res.json(warranties);
 });
 
@@ -57,35 +98,123 @@ router.get('/:id', async (req, res) => {
   const warranty = await prisma.warranty.findUnique({
     where: { id: Number(req.params.id) },
     include: {
-      customer: true, vehicle: true, product: true, invoice: true,
+      customer: true, vehicle: true, product: true, invoice: true, sale: true,
       claims: true, replacements: { include: { product: true, inventory: true } },
       returns: { include: { product: true, inventory: true } },
     },
   });
   if (!warranty) return res.status(404).json({ error: 'Not Found', message: 'Warranty not found' });
   const settings = (await prisma.businessSettings.findFirst()) || { warrantyExpiryDays: 30 };
-  res.json({ ...warranty, computedStatus: computeStatus(warranty.warrantyEnd, settings.warrantyExpiryDays) });
+  res.json({
+    ...warranty,
+    computedStatus: warranty.status === 'NO WARRANTY'
+      ? 'NO WARRANTY'
+      : computeWarrantyStatus(warranty.warrantyEnd, settings.warrantyExpiryDays),
+  });
+});
+
+router.put('/:id', authorize('ADMIN'), async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return res.status(404).json({ error: 'Not Found', message: 'Warranty not found' });
+  const warranty = await prisma.warranty.findUnique({
+    where: { id },
+    include: { claims: true, returns: true, replacements: true },
+  });
+  if (!warranty) return res.status(404).json({ error: 'Not Found', message: 'Warranty not found' });
+
+  const b = req.body;
+  if (!['APPLICABLE', 'NONE'].includes(b.status)) return bad(res, 'Select Warranty Applicable or No Warranty.');
+  const start = parseDateOnly(b.startDate);
+  if (!start) return bad(res, 'Enter a valid warranty start date.');
+  const years = Number(b.years);
+  if (!Number.isSafeInteger(years) || years < 0 || years > 100) {
+    return bad(res, 'Warranty years must be a valid non-negative whole number.');
+  }
+  if (b.terms !== undefined && (typeof b.terms !== 'string' || b.terms.length > 2000)) {
+    return bad(res, 'Warranty notes must be 2000 characters or fewer.');
+  }
+  const terms = b.terms === undefined ? warranty.warrantyTerms : b.terms.trim();
+
+  if (b.status === 'NONE') {
+    if (warranty.claims.length || warranty.returns.length || warranty.replacements.length) {
+      return bad(res, 'A warranty with claim or return history cannot be changed to No Warranty.');
+    }
+    await prisma.warranty.update({
+      where: { id },
+      data: {
+        warrantyStart: start,
+        warrantyEnd: start,
+        purchaseDate: start,
+        warrantyType: 'No Warranty',
+        warrantyDuration: 0,
+        warrantyYears: 0,
+        warrantyMonths: 0,
+        warrantyDays: 0,
+        warrantyTerms: terms || null,
+        status: 'NO WARRANTY',
+      },
+    });
+  } else {
+    if (years === 0) return bad(res, 'Enter a positive warranty duration in years.');
+    const calculatedEnd = addWarrantyDuration(start, years);
+    const end = b.endDate ? parseDateOnly(b.endDate) : calculatedEnd;
+    if (!end || end < start) return bad(res, 'Warranty expiry must be a valid date on or after the start date.');
+    await prisma.warranty.update({
+      where: { id },
+      data: {
+        warrantyStart: start,
+        warrantyEnd: end,
+        purchaseDate: start,
+        warrantyType: warranty.warrantyType === 'No Warranty' ? 'Manual Warranty' : warranty.warrantyType,
+        warrantyDuration: years * 12,
+        warrantyYears: years,
+        warrantyMonths: 0,
+        warrantyDays: 0,
+        warrantyTerms: terms || null,
+        status: warranty.status === 'NO WARRANTY' ? 'ACTIVE' : warranty.status,
+      },
+    });
+  }
+  await logAudit({ userId: req.user.id, action: 'WARRANTY_UPDATED', entity: 'Warranty', entityId: id });
+  const updated = await prisma.warranty.findUnique({
+    where: { id },
+    include: {
+      customer: true, vehicle: true, product: true, invoice: true, sale: true,
+      claims: true, replacements: { include: { product: true, inventory: true } },
+      returns: { include: { product: true, inventory: true } },
+    },
+  });
+  const settings = (await prisma.businessSettings.findFirst()) || { warrantyExpiryDays: 30 };
+  res.json({
+    ...updated,
+    computedStatus: updated.status === 'NO WARRANTY'
+      ? 'NO WARRANTY'
+      : computeWarrantyStatus(updated.warrantyEnd, settings.warrantyExpiryDays),
+  });
 });
 
 router.post('/', authorize('ADMIN'), async (req, res) => {
   const b = req.body;
-  if (!b.customerId || !b.productId || !b.purchaseDate || !b.warrantyDuration) {
-    return bad(res, 'Customer, product, purchase date and duration are required.');
-  }
-  if (!Number.isFinite(Number(b.warrantyDuration)) || Number(b.warrantyDuration) <= 0) {
-    return bad(res, 'Warranty duration must be greater than zero.');
-  }
+  if (!b.customerId || !b.productId || !b.purchaseDate) return bad(res, 'Customer, product and purchase date are required.');
   const { generateWarrantyCode } = require('../utils/codes');
-  const start = new Date(b.purchaseDate);
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + Number(b.warrantyDuration));
+  const start = parseDateOnly(String(b.purchaseDate).slice(0, 10));
+  if (!start) return bad(res, 'Enter a valid purchase date.');
+  const years = b.warrantyYears === undefined
+    ? Math.ceil(Number(b.warrantyDuration) / 12)
+    : Number(b.warrantyYears);
+  if (!Number.isSafeInteger(years) || years <= 0 || years > 100) return bad(res, 'Warranty years must be a positive whole number.');
+  const end = addWarrantyDuration(start, years);
   const warranty = await prisma.warranty.create({
     data: {
       warrantyCode: await generateWarrantyCode(), customerId: Number(b.customerId),
       vehicleId: b.vehicleId ? Number(b.vehicleId) : null, productId: Number(b.productId),
       invoiceId: b.invoiceId ? Number(b.invoiceId) : null, saleId: b.saleId ? Number(b.saleId) : null,
       serialNumber: b.serialNumber, purchaseDate: start, warrantyStart: start, warrantyEnd: end,
-      warrantyType: b.warrantyType || 'Manufacturer Warranty', warrantyDuration: Number(b.warrantyDuration),
+      warrantyType: b.warrantyType || 'Manufacturer Warranty',
+      warrantyDuration: years * 12,
+      warrantyYears: years,
+      warrantyMonths: 0,
+      warrantyDays: 0,
       warrantyTerms: b.warrantyTerms, status: 'ACTIVE',
     },
   });
@@ -99,7 +228,9 @@ router.post('/:id/claims', authorize('ADMIN'), async (req, res) => {
   if (!reason) return bad(res, 'A claim reason is required.');
   const warranty = await prisma.warranty.findUnique({ where: { id: warrantyId } });
   if (!warranty) return res.status(404).json({ error: 'Not Found', message: 'Warranty not found' });
-  if (warranty.status === 'EXPIRED' || warranty.status === 'RETURNED') return bad(res, 'This warranty is no longer claimable.');
+  if (warranty.status === 'NO WARRANTY'
+    || computeWarrantyStatus(warranty.warrantyEnd, 0) === 'EXPIRED'
+    || warranty.status === 'RETURNED') return bad(res, 'This warranty is no longer claimable.');
   const claim = await prisma.warrantyClaim.create({
     data: { warrantyId, reason, status: 'OPEN', claimedBy: req.user.id },
   });
