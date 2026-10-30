@@ -208,7 +208,7 @@ table.data-table tr:hover td { background: #fafafa; }
 .warranty-config-head span { color: var(--muted); font-size: 0.85rem; }
 .warranty-duration-inputs { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin-bottom: 12px; }
 .warranty-duration-inputs > label { font-size: 0.82rem; font-weight: 600; color: var(--muted); }
-.warranty-duration-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.warranty-duration-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .warranty-duration-fields input { min-width: 0; width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; }
 .warranty-business { display: flex; align-items: center; gap: 14px; line-height: 1.5; font-size: 0.86rem; color: var(--muted); }
 .warranty-business h2 { color: var(--primary); margin: 0 0 2px; font-size: 1.35rem; }

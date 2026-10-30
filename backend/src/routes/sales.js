@@ -252,28 +252,25 @@ router.post('/', authorize('ADMIN'), async (req, res, next) => {
 
       const start = parseDateOnly(provided?.startDate || defaultStartInput);
       if (!start) return bad(res, 'Enter a valid warranty start date.');
-      const years = provided ? Number(provided.years) : Math.floor(Number(item._product.warrantyDuration || 0) / 12);
-      const months = provided ? Number(provided.months) : Number(item._product.warrantyDuration || 0) % 12;
-      const days = provided ? Number(provided.days) : 0;
+      const years = provided ? Number(provided.years) : Math.ceil(Number(item._product.warrantyDuration || 0) / 12);
       if (provided?.terms !== undefined && (typeof provided.terms !== 'string' || provided.terms.length > 2000)) {
         return bad(res, 'Warranty notes must be 2000 characters or fewer.');
       }
-      if (![years, months, days].every((value) => Number.isSafeInteger(value) && value >= 0)
-        || years > 100 || months > 1200 || days > 36500) {
-        return bad(res, 'Warranty years, months, and days must be valid non-negative whole numbers.');
+      if (!Number.isSafeInteger(years) || years < 0 || years > 100) {
+        return bad(res, 'Warranty years must be a valid non-negative whole number.');
       }
 
       if (!applicable) {
         warrantyConfigs.push({
-          item, applicable: false, start, end: start, years: 0, months: 0, days: 0, terms: provided?.terms,
+          item, applicable: false, start, end: start, years: 0, terms: provided?.terms,
         });
         continue;
       }
-      if (years + months + days === 0) return bad(res, `Enter a positive warranty duration for ${item._product.name}.`);
-      const calculatedEnd = addWarrantyDuration(start, years, months, days);
+      if (years === 0) return bad(res, `Enter a positive warranty duration in years for ${item._product.name}.`);
+      const calculatedEnd = addWarrantyDuration(start, years);
       const end = provided?.endDate ? parseDateOnly(provided.endDate) : calculatedEnd;
       if (!end || end < start) return bad(res, 'Warranty expiry must be a valid date on or after the start date.');
-      warrantyConfigs.push({ item, applicable: true, start, end, years, months, days, terms: provided?.terms });
+      warrantyConfigs.push({ item, applicable: true, start, end, years, terms: provided?.terms });
     }
     // Item discounts and the overall discount both come off the total; GST is charged on each line after its own discount.
     const itemDiscountTotal = round2(saleItemsData.reduce((a, i) => a + i.discount, 0));
@@ -432,10 +429,10 @@ router.post('/', authorize('ADMIN'), async (req, res, next) => {
             warrantyStart: config.start,
             warrantyEnd: config.end,
             warrantyType: config.applicable ? 'Manual Warranty' : 'No Warranty',
-            warrantyDuration: config.years * 12 + config.months,
+            warrantyDuration: config.years * 12,
             warrantyYears: config.years,
-            warrantyMonths: config.months,
-            warrantyDays: config.days,
+            warrantyMonths: 0,
+            warrantyDays: 0,
             warrantyTerms: config.terms ? String(config.terms).trim().slice(0, 2000) : null,
             status: config.applicable ? 'ACTIVE' : 'NO WARRANTY',
           },

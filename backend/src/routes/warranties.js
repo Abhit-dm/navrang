@@ -127,11 +127,8 @@ router.put('/:id', authorize('ADMIN'), async (req, res) => {
   const start = parseDateOnly(b.startDate);
   if (!start) return bad(res, 'Enter a valid warranty start date.');
   const years = Number(b.years);
-  const months = Number(b.months);
-  const days = Number(b.days);
-  if (![years, months, days].every((value) => Number.isSafeInteger(value) && value >= 0)
-    || years > 100 || months > 1200 || days > 36500) {
-    return bad(res, 'Warranty years, months, and days must be valid non-negative whole numbers.');
+  if (!Number.isSafeInteger(years) || years < 0 || years > 100) {
+    return bad(res, 'Warranty years must be a valid non-negative whole number.');
   }
   if (b.terms !== undefined && (typeof b.terms !== 'string' || b.terms.length > 2000)) {
     return bad(res, 'Warranty notes must be 2000 characters or fewer.');
@@ -158,8 +155,8 @@ router.put('/:id', authorize('ADMIN'), async (req, res) => {
       },
     });
   } else {
-    if (years + months + days === 0) return bad(res, 'Enter a positive warranty duration.');
-    const calculatedEnd = addWarrantyDuration(start, years, months, days);
+    if (years === 0) return bad(res, 'Enter a positive warranty duration in years.');
+    const calculatedEnd = addWarrantyDuration(start, years);
     const end = b.endDate ? parseDateOnly(b.endDate) : calculatedEnd;
     if (!end || end < start) return bad(res, 'Warranty expiry must be a valid date on or after the start date.');
     await prisma.warranty.update({
@@ -169,10 +166,10 @@ router.put('/:id', authorize('ADMIN'), async (req, res) => {
         warrantyEnd: end,
         purchaseDate: start,
         warrantyType: warranty.warrantyType === 'No Warranty' ? 'Manual Warranty' : warranty.warrantyType,
-        warrantyDuration: years * 12 + months,
+        warrantyDuration: years * 12,
         warrantyYears: years,
-        warrantyMonths: months,
-        warrantyDays: days,
+        warrantyMonths: 0,
+        warrantyDays: 0,
         warrantyTerms: terms || null,
         status: warranty.status === 'NO WARRANTY' ? 'ACTIVE' : warranty.status,
       },
@@ -198,18 +195,15 @@ router.put('/:id', authorize('ADMIN'), async (req, res) => {
 
 router.post('/', authorize('ADMIN'), async (req, res) => {
   const b = req.body;
-  if (!b.customerId || !b.productId || !b.purchaseDate || !b.warrantyDuration) {
-    return bad(res, 'Customer, product, purchase date and duration are required.');
-  }
-  if (!Number.isFinite(Number(b.warrantyDuration)) || Number(b.warrantyDuration) <= 0) {
-    return bad(res, 'Warranty duration must be greater than zero.');
-  }
+  if (!b.customerId || !b.productId || !b.purchaseDate) return bad(res, 'Customer, product and purchase date are required.');
   const { generateWarrantyCode } = require('../utils/codes');
   const start = parseDateOnly(String(b.purchaseDate).slice(0, 10));
   if (!start) return bad(res, 'Enter a valid purchase date.');
-  const durationMonths = Number(b.warrantyDuration);
-  if (!Number.isSafeInteger(durationMonths) || durationMonths <= 0) return bad(res, 'Warranty duration must be a positive whole number of months.');
-  const end = addWarrantyDuration(start, Math.floor(durationMonths / 12), durationMonths % 12, 0);
+  const years = b.warrantyYears === undefined
+    ? Math.ceil(Number(b.warrantyDuration) / 12)
+    : Number(b.warrantyYears);
+  if (!Number.isSafeInteger(years) || years <= 0 || years > 100) return bad(res, 'Warranty years must be a positive whole number.');
+  const end = addWarrantyDuration(start, years);
   const warranty = await prisma.warranty.create({
     data: {
       warrantyCode: await generateWarrantyCode(), customerId: Number(b.customerId),
@@ -217,9 +211,10 @@ router.post('/', authorize('ADMIN'), async (req, res) => {
       invoiceId: b.invoiceId ? Number(b.invoiceId) : null, saleId: b.saleId ? Number(b.saleId) : null,
       serialNumber: b.serialNumber, purchaseDate: start, warrantyStart: start, warrantyEnd: end,
       warrantyType: b.warrantyType || 'Manufacturer Warranty',
-      warrantyDuration: durationMonths,
-      warrantyYears: Math.floor(durationMonths / 12),
-      warrantyMonths: durationMonths % 12,
+      warrantyDuration: years * 12,
+      warrantyYears: years,
+      warrantyMonths: 0,
+      warrantyDays: 0,
       warrantyTerms: b.warrantyTerms, status: 'ACTIVE',
     },
   });

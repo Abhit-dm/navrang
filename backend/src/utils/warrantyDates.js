@@ -8,12 +8,12 @@ function parseDateOnly(value) {
   return date;
 }
 
-function addWarrantyDuration(start, years, months, days) {
-  const monthIndex = start.getUTCFullYear() * 12 + start.getUTCMonth() + years * 12 + months;
+function addWarrantyDuration(start, years) {
+  const monthIndex = start.getUTCFullYear() * 12 + start.getUTCMonth() + years * 12;
   const year = Math.floor(monthIndex / 12);
   const month = monthIndex % 12;
   const day = Math.min(start.getUTCDate(), new Date(Date.UTC(year, month + 1, 0)).getUTCDate());
-  return new Date(Date.UTC(year, month, day + days));
+  return new Date(Date.UTC(year, month, day));
 }
 
 function computeWarrantyStatus(endDate, expiryDays, now = new Date()) {

@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { formatDate, formatDateTime, statusBadgeClass } from '../utils/format.js';
-import { addWarrantyDuration, warrantyDurationLabel } from '../utils/warranty.js';
+import { addWarrantyDuration, warrantyDurationLabel, warrantyYearsValue } from '../utils/warranty.js';
 
 const dateInput = (date) => (date ? new Date(date).toISOString().slice(0, 10) : '');
 
@@ -34,9 +34,7 @@ export default function WarrantyDetail() {
       status: wRes.data.status === 'NO WARRANTY' ? 'NONE' : 'APPLICABLE',
       startDate: dateInput(wRes.data.warrantyStart),
       endDate: dateInput(wRes.data.warrantyEnd),
-      years: wRes.data.warrantyYears ?? Math.floor(Number(wRes.data.warrantyDuration || 0) / 12),
-      months: wRes.data.warrantyMonths ?? Number(wRes.data.warrantyDuration || 0) % 12,
-      days: wRes.data.warrantyDays || 0,
+      years: warrantyYearsValue(wRes.data),
       terms: wRes.data.warrantyTerms || '',
     });
   };
@@ -76,7 +74,7 @@ export default function WarrantyDetail() {
 
   const updateForm = (field, value) => setForm((current) => {
     const next = { ...current, [field]: value };
-    if (field !== 'endDate') next.endDate = addWarrantyDuration(next.startDate, next.years, next.months, next.days);
+    if (field !== 'endDate') next.endDate = addWarrantyDuration(next.startDate, next.years);
     if (field === 'status' && value === 'NONE') next.endDate = next.startDate;
     return next;
   });
@@ -136,11 +134,9 @@ export default function WarrantyDetail() {
               {form.status === 'APPLICABLE' && (
                 <>
                   <div className="warranty-duration-inputs">
-                    <label>Warranty Duration</label>
+                    <label>Warranty Years</label>
                     <div className="warranty-duration-fields">
                       <input aria-label="Warranty years" placeholder="Years" type="number" min="0" max="100" step="1" value={form.years} onChange={(e) => updateForm('years', e.target.value)} />
-                      <input aria-label="Warranty months" placeholder="Months" type="number" min="0" max="1200" step="1" value={form.months} onChange={(e) => updateForm('months', e.target.value)} />
-                      <input aria-label="Warranty days" placeholder="Days" type="number" min="0" max="36500" step="1" value={form.days} onChange={(e) => updateForm('days', e.target.value)} />
                     </div>
                   </div>
                   <div className="form-group"><label>Warranty Start Date</label><input required type="date" value={form.startDate} onChange={(e) => updateForm('startDate', e.target.value)} /></div>

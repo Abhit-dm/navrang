@@ -9,11 +9,11 @@ test('parseDateOnly accepts valid calendar dates and rejects rollover dates', ()
   assert.equal(parseDateOnly('2025-2-01'), null);
 });
 
-test('warranty durations clamp month and leap-year boundaries', () => {
-  assert.equal(addWarrantyDuration(parseDateOnly('2025-01-31'), 0, 1, 0).toISOString(), '2025-02-28T00:00:00.000Z');
-  assert.equal(addWarrantyDuration(parseDateOnly('2024-02-29'), 1, 0, 0).toISOString(), '2025-02-28T00:00:00.000Z');
-  assert.equal(addWarrantyDuration(parseDateOnly('2025-12-31'), 0, 1, 0).toISOString(), '2026-01-31T00:00:00.000Z');
-  assert.equal(addWarrantyDuration(parseDateOnly('2025-12-31'), 0, 0, 1).toISOString(), '2026-01-01T00:00:00.000Z');
+test('year warranty durations clamp leap-year boundaries', () => {
+  assert.equal(addWarrantyDuration(parseDateOnly('2025-01-15'), 2).toISOString(), '2027-01-15T00:00:00.000Z');
+  assert.equal(addWarrantyDuration(parseDateOnly('2024-02-29'), 1).toISOString(), '2025-02-28T00:00:00.000Z');
+  assert.equal(addWarrantyDuration(parseDateOnly('2025-01-31'), 1).toISOString(), '2026-01-31T00:00:00.000Z');
+  assert.equal(addWarrantyDuration(parseDateOnly('2025-12-31'), 1).toISOString(), '2026-12-31T00:00:00.000Z');
 });
 
 test('warranty status stays valid through the full expiry date', () => {

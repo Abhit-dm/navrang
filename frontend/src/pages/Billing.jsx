@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/client.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { PAYMENT_METHODS, formatCurrency, statusBadgeClass, todayInput } from '../utils/format.js';
-import { addWarrantyDuration } from '../utils/warranty.js';
 
 const EMPTY_CUSTOMER = { name: '', phone: '', altPhone: '', email: '', address: '', gstin: '' };
 const EMPTY_VEHICLE = { vehicleNumber: '', model: '', vehicleType: '' };
@@ -63,14 +62,12 @@ export default function Billing() {
     if (cart.find((c) => c.productId === p.id)) return;
     const warrantyMonths = Number(p.warrantyDuration || 0);
     const applicable = p.warrantyType && p.warrantyType !== 'No Warranty' && warrantyMonths > 0;
-    const years = Math.floor(warrantyMonths / 12);
-    const months = warrantyMonths % 12;
+    const years = Math.ceil(warrantyMonths / 12);
     setCart([...cart, {
       productId: p.id, name: p.name, brand: p.brand, model: p.pattern, sku: p.sku, size: p.size, availableStock: p.availableStock,
       sellingPrice: p.sellingPrice, listPrice: p.sellingPrice, gstPercent: p.gstPercent, quantity: 1, discount: 0,
       warranty: {
-        status: applicable ? 'APPLICABLE' : 'NONE', years, months, days: 0,
-        startDate: saleDate, endDate: addWarrantyDuration(saleDate, years, months, 0), terms: '',
+        status: applicable ? 'APPLICABLE' : 'NONE', years, terms: '',
       },
     }]);
     setProductSearch(''); setProductResults([]);
@@ -78,15 +75,9 @@ export default function Billing() {
 
   const updateCartItem = (idx, field, value) => setCart(cart.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
   const removeFromCart = (idx) => setCart(cart.filter((_, i) => i !== idx));
-  const updateWarranty = (idx, field, value) => setCart(cart.map((item, i) => {
-    if (i !== idx) return item;
-    const warranty = { ...item.warranty, [field]: value };
-    if (field !== 'endDate') warranty.endDate = addWarrantyDuration(
-      warranty.startDate, warranty.years, warranty.months, warranty.days,
-    );
-    if (field === 'status' && value === 'NONE') warranty.endDate = warranty.startDate;
-    return { ...item, warranty };
-  }));
+  const updateWarranty = (idx, field, value) => setCart(cart.map((item, i) => (
+    i === idx ? { ...item, warranty: { ...item.warranty, [field]: value } } : item
+  )));
 
   // Display-only estimate; the server recalculates and validates every total on save.
   const lineTaxable = (item) => Number(item.sellingPrice) * Number(item.quantity) - Number(item.discount || 0);
@@ -300,7 +291,7 @@ export default function Billing() {
 
       <div className="panel">
         <h3>3. Product Warranty</h3>
-        <p style={{ color: 'var(--muted)', marginTop: -8 }}>Set a separate warranty period for each product in this sale. Expiry is calculated from the start date and can be adjusted.</p>
+        <p style={{ color: 'var(--muted)', marginTop: -8 }}>Set a separate warranty period for each product. The warranty starts on the sale date and its expiry is calculated automatically.</p>
         {cart.length === 0 && <div className="empty-state">Add products to configure their warranties.</div>}
         {cart.map((item, idx) => (
           <div className="warranty-config" key={item.productId}>
@@ -319,20 +310,16 @@ export default function Billing() {
               {item.warranty.status === 'APPLICABLE' && (
                 <>
                   <div className="warranty-duration-inputs">
-                    <label>Warranty Duration</label>
+                    <label>Warranty Years</label>
                     <div className="warranty-duration-fields">
                       <input aria-label={`${item.name} warranty years`} type="number" min="0" max="100" step="1" placeholder="Years" value={item.warranty.years} onChange={(e) => updateWarranty(idx, 'years', e.target.value)} />
-                      <input aria-label={`${item.name} warranty months`} type="number" min="0" max="1200" step="1" placeholder="Months" value={item.warranty.months} onChange={(e) => updateWarranty(idx, 'months', e.target.value)} />
-                      <input aria-label={`${item.name} warranty days`} type="number" min="0" max="36500" step="1" placeholder="Days" value={item.warranty.days} onChange={(e) => updateWarranty(idx, 'days', e.target.value)} />
                     </div>
                   </div>
-                  <div className="form-group"><label>Warranty Start Date</label><input required type="date" value={item.warranty.startDate} onChange={(e) => updateWarranty(idx, 'startDate', e.target.value)} /></div>
-                  <div className="form-group"><label>Warranty End Date</label><input required type="date" min={item.warranty.startDate} value={item.warranty.endDate} onChange={(e) => updateWarranty(idx, 'endDate', e.target.value)} /></div>
                   <div className="form-group"><label>Warranty Notes / Terms</label><textarea maxLength={2000} value={item.warranty.terms} onChange={(e) => updateWarranty(idx, 'terms', e.target.value)} /></div>
                 </>
               )}
               {item.warranty.status === 'NONE' && (
-                <div className="form-group"><label>Warranty Notes (optional)</label><textarea maxLength={2000} value={item.warranty.terms} onChange={(e) => updateWarranty(idx, 'terms', e.target.value)} /></div>
+                <div className="form-group"><label>Warranty Notes / Terms (optional)</label><textarea maxLength={2000} value={item.warranty.terms} onChange={(e) => updateWarranty(idx, 'terms', e.target.value)} /></div>
               )}
             </div>
           </div>
